@@ -12,6 +12,7 @@
 
 import rospy
 import time
+import math
 from whirlybird_msgs.msg import Command
 from whirlybird_msgs.msg import Whirlybird
 from std_msgs.msg import Float32
@@ -66,9 +67,18 @@ class Controller():
         self.prev_psi = 0.0
         self.Int_psi = 0.0
 
+        #PID Gains
+        zeta = .707
+        omegan = 3.8
+
+        self.kd = 2*zeta*omegan/1.152
+        self.kp = (omegan**2)/1.152
+        #self.kd = 3.47222 #Poles at -1 and -3
+        #self.kp = 2.60417
+
         self.prev_time = rospy.Time.now()
 
-        self.Fe = 0.0 #Note this is not the correct value for Fe, you will have to find that yourself
+        self.Fe = (m1*l2-m2*l2)*g*math.cos(0)/l1 #Note this is not the correct value for Fe, you will have to find that yourself
 
         self.command_sub_ = rospy.Subscriber('whirlybird', Whirlybird, self.whirlybirdCallback, queue_size=5)
         self.psi_r_sub_ = rospy.Subscriber('psi_r', Float32, self.psiRCallback, queue_size=5)
@@ -109,10 +119,20 @@ class Controller():
         now = rospy.Time.now()
         dt = (now-self.prev_time).to_sec()
         self.prev_time = now
-        
+
         ##################################
         # Implement your controller here
 
+
+        thetad = (theta-self.prev_theta)/dt
+        self.prev_theta = theta
+
+        Ftilde = self.kp*(self.theta_r-theta)-self.kd*thetad
+        Fe = (m1*l2-m2*l2)*g*math.cos(theta)/l1
+        F = Fe + Ftilde
+
+        left_force = F/2
+        right_force = F/2
 
         ##################################
 
@@ -120,14 +140,14 @@ class Controller():
         l_out = left_force/km
         if(l_out < 0):
             l_out = 0
-        elif(l_out > 1.0):
-            l_out = 1.0
+        elif(l_out > .7):
+            l_out = .7
 
         r_out = right_force/km
         if(r_out < 0):
             r_out = 0
-        elif(r_out > 1.0):
-            r_out = 1.0
+        elif(r_out > .7):
+            r_out = .7
 
         # Pack up and send command
         command = Command()
