@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function ros_louie() {
-    export ROS_MASTER_URI=http://10.8.33.42:11311
+    export ROS_MASTER_URI=http://louie.ee.byu.edu:11311
     export ROS_IP=$(hostname -I)
 
     env | grep ROS_MASTER_URI
@@ -9,7 +9,7 @@ function ros_louie() {
 }
 
 function ros_dewey() {
-    export ROS_MASTER_URI=http://10.8.33.41:11311
+    export ROS_MASTER_URI=http://dewey.ee.byu.edu:11311
     export ROS_IP=$(hostname -I)
 
     env | grep ROS_MASTER_URI
@@ -17,7 +17,7 @@ function ros_dewey() {
 }
 
 function ros_huey() {
-    export ROS_MASTER_URI=http://10.8.33.40:11311
+    export ROS_MASTER_URI=http://huey.ee.byu.edu:11311
     export ROS_IP=$(hostname -I)
 
     env | grep ROS_MASTER_URI
