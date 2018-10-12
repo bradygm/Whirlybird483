@@ -68,11 +68,13 @@ class Controller():
         self.Int_psi = 0.0
 
         #PID Gains
+        b0 = 1.152
         zeta = .707
-        omegan = 3.8
+        tr = .9
+        omegan = 2.2/tr
 
-        self.kd = 2*zeta*omegan/1.152
-        self.kp = (omegan**2)/1.152
+        self.kd = (2*zeta*omegan)/b0
+        self.kp = omegan**2/b0
         #self.kd = 3.47222 #Poles at -1 and -3
         #self.kp = 2.60417
 
@@ -128,7 +130,7 @@ class Controller():
         self.prev_theta = theta
 
         Ftilde = self.kp*(self.theta_r-theta)-self.kd*thetad
-        Fe = (m1*l2-m2*l2)*g*math.cos(theta)/l1
+        Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
         F = Fe + Ftilde
 
         left_force = F/2
