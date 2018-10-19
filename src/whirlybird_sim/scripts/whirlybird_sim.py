@@ -123,12 +123,12 @@ class WhirlybirdSim():
                 thetad *= -0.5 # bounce against limit
 
         # pack back up
-        self.state[0] = 0 #phi
+        self.state[0] = phi #phi
         self.state[1] = theta
-        self.state[2] = 0 #psi
-        self.state[3] = 0 #phid + np.random.normal(0, 0.001, 1)
+        self.state[2] = psi #psi
+        self.state[3] = phid + np.random.normal(0, 0.001, 1)
         self.state[4] = thetad + np.random.normal(0, 0.001, 1)
-        self.state[5] = 0 #psid
+        self.state[5] = psid
 
     def dynamics(self, state, command):
         # Get parameters of ros param server
@@ -145,12 +145,12 @@ class WhirlybirdSim():
         Jz = self.Jz
         km = self.km
 
-        phi = 0 #state[0]
+        phi = state[0]
         theta = state[1]
-        psi = 0 #state[2]
-        phid = 0 #state[3]
+        psi = state[2]
+        phid = state[3]
         thetad = state[4]
-        psid = 0 #state[5]
+        psid = state[5]
 
         # adjust forces for gains
         fl = km * command[0]

@@ -42,45 +42,51 @@ class Controller():
         Jy = self.param['Jy']
         Jz = self.param['Jz']
         km = self.param['km']
-
+        self.Fe = (m1*l1-m2*l2)*g*math.cos(0)/l1 #Note this is not the correct value for Fe, you will have to find that yourself
 
         # Roll Gains
-        self.P_phi_ = 0.0
+        zeta_p = .707
+        tr_p = .3
+        omegan_p = 2.2/tr_p
+
+        self.P_phi_ = omegan_p**2*Jx
         self.I_phi_ = 0.0
-        self.D_phi_ = 0.0
+        self.D_phi_ = 2*zeta_p*omegan_p*Jx
         self.Int_phi = 0.0
         self.prev_phi = 0.0
 
         # Pitch Gains
+        b0_th = 1.152
+        zeta_th = .707
+        tr_th = .9
+        omegan_th = 2.2/tr_th
+
         self.theta_r = 0.0
-        self.P_theta_ = 0.0
+        self.P_theta_ = omegan_th**2/b0_th
         self.I_theta_ = 0.0
-        self.D_theta_ = 0.0
+        self.D_theta_ = (2*zeta_th*omegan_th)/b0_th
         self.prev_theta = 0.0
         self.Int_theta = 0.0
 
         # Yaw Gains
+        b_psi = (l1*self.Fe)/(m1*l2**2 + m2*l2**2 + Jz)
+        zeta_psi = .707
+        m_psi = 10
+        tr_psi = m_psi*tr_p
+        omegan_psi = 2.2/tr_psi
+
+
         self.psi_r = 0.0
-        self.P_psi_ = 0.0
+        self.P_psi_ = omegan_psi**2/b_psi
         self.I_psi_ = 0.0
-        self.D_psi_ = 0.0
+        self.D_psi_ = (2*zeta_psi*omegan_psi)/b_psi
         self.prev_psi = 0.0
         self.Int_psi = 0.0
 
-        #PID Gains
-        b0 = 1.152
-        zeta = .707
-        tr = .9
-        omegan = 2.2/tr
-
-        self.kd = (2*zeta*omegan)/b0
-        self.kp = omegan**2/b0
-        #self.kd = 3.47222 #Poles at -1 and -3
-        #self.kp = 2.60417
 
         self.prev_time = rospy.Time.now()
 
-        self.Fe = (m1*l2-m2*l2)*g*math.cos(0)/l1 #Note this is not the correct value for Fe, you will have to find that yourself
+
 
         self.command_sub_ = rospy.Subscriber('whirlybird', Whirlybird, self.whirlybirdCallback, queue_size=5)
         self.psi_r_sub_ = rospy.Subscriber('psi_r', Float32, self.psiRCallback, queue_size=5)
@@ -127,14 +133,22 @@ class Controller():
 
 
         thetad = (theta-self.prev_theta)/dt
+        psid = (psi-self.prev_psi)/dt
+        phid = (phi-self.prev_phi)/dt
         self.prev_theta = theta
+        self.prev_psi = psi
+        self.prev_phi = phi
 
-        Ftilde = self.kp*(self.theta_r-theta)-self.kd*thetad
+        Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*thetad
         Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
         F = Fe + Ftilde
 
-        left_force = F/2
-        right_force = F/2
+
+        phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*psid
+        Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*phid
+
+        left_force = (F+l1*Tau)/2
+        right_force = (F-l2*Tau)/2
 
         ##################################
 
