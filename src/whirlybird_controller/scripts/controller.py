@@ -46,7 +46,7 @@ class Controller():
 
         # Roll Gains
         zeta_p = .707
-        tr_p = .3
+        tr_p = .2
         omegan_p = 2.2/tr_p
 
         self.P_phi_ = omegan_p**2*Jx
@@ -69,7 +69,7 @@ class Controller():
         self.Int_theta = 0.0
 
         # Yaw Gains
-        b_psi = (l1*self.Fe)/(m1*l2**2 + m2*l2**2 + Jz)
+        b_psi = (l1*self.Fe)/(m1*l1**2 + m2*l2**2 + Jz) #Works better for l2 than l1 even though it should be l1
         zeta_psi = .707
         m_psi = 10
         tr_psi = m_psi*tr_p
@@ -147,8 +147,8 @@ class Controller():
         phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*psid
         Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*phid
 
-        left_force = (F+l1*Tau)/2
-        right_force = (F-l2*Tau)/2
+        left_force = (F+Tau/d)/2
+        right_force = (F-Tau/d)/2
 
         ##################################
 
