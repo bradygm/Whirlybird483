@@ -50,10 +50,12 @@ class Controller():
         omegan_p = 2.2/tr_p
 
         self.P_phi_ = omegan_p**2*Jx
-        self.I_phi_ = 0.0
+        self.I_phi_ = 1
         self.D_phi_ = 2*zeta_p*omegan_p*Jx
         self.Int_phi = 0.0
         self.prev_phi = 0.0
+        self.error_phi_prev = 0.0
+        self.phid = 0.0
 
         # Pitch Gains
         b0_th = 1.152
@@ -63,10 +65,12 @@ class Controller():
 
         self.theta_r = 0.0
         self.P_theta_ = omegan_th**2/b0_th
-        self.I_theta_ = 0.0
+        self.I_theta_ = 1
         self.D_theta_ = (2*zeta_th*omegan_th)/b0_th
         self.prev_theta = 0.0
         self.Int_theta = 0.0
+        self.error_theta_prev = 0.0
+        self.thetad = 0.0
 
         # Yaw Gains
         b_psi = (l1*self.Fe)/(m1*l1**2 + m2*l2**2 + Jz) #Works better for l2 than l1 even though it should be l1
@@ -78,13 +82,16 @@ class Controller():
 
         self.psi_r = 0.0
         self.P_psi_ = omegan_psi**2/b_psi
-        self.I_psi_ = 0.0
+        self.I_psi_ = .1
         self.D_psi_ = (2*zeta_psi*omegan_psi)/b_psi
         self.prev_psi = 0.0
         self.Int_psi = 0.0
+        self.psid = 0.0
+        self.error_psi_prev = 0.0
 
 
         self.prev_time = rospy.Time.now()
+        self.sigma = .05
 
 
 
@@ -130,22 +137,39 @@ class Controller():
 
         ##################################
         # Implement your controller here
+        a1 = (2.0*self.sigma - dt)/(2*self.sigma + dt)
+        a2 = (2.0/(2*self.sigma+dt))
+        self.thetad = a1*self.thetad+a2*(theta-self.prev_theta)
+        self.psid = a1*self.psid+a2*((psi-self.prev_psi))
 
+        # self.thetad = (theta-self.prev_theta)/dt
+        # self.psid = (psi-self.prev_psi)/dt
+        # self.phid = (phi-self.prev_phi)/dt
 
-        thetad = (theta-self.prev_theta)/dt
-        psid = (psi-self.prev_psi)/dt
-        phid = (phi-self.prev_phi)/dt
         self.prev_theta = theta
         self.prev_psi = psi
-        self.prev_phi = phi
 
-        Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*thetad
+        if(abs(self.thetad) < .05):
+            self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
+        self.error_theta_prev = self.theta_r-theta
+
+        Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
+
+
         Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
         F = Fe + Ftilde
+        if(abs(self.psid) < .2):
+            self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
+        phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
 
 
-        phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*psid
-        Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*phid
+        self.phid = a1*self.phid+a2*(phi-self.prev_phi)
+
+        self.prev_phi = phi
+        self.error_phi_prev = phi_r-phi
+        self.error_psi_prev = self.psi_r-psi
+
+        Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
 
         left_force = (F+Tau/d)/2
         right_force = (F-Tau/d)/2
