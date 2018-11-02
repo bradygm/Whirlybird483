@@ -16,6 +16,9 @@ import math
 from whirlybird_msgs.msg import Command
 from whirlybird_msgs.msg import Whirlybird
 from std_msgs.msg import Float32
+import numpy as np
+import os
+import control
 
 
 class Controller():
@@ -44,11 +47,55 @@ class Controller():
         km = self.param['km']
         self.Fe = (m1*l1-m2*l2)*g*math.cos(0)/l1 #Note this is not the correct value for Fe, you will have to find that yourself
 
+        #SS Stuff
+        self.Alat = np.array([[0., 0., 1., 0.], [0., 0., 0., 1], [0., 0., 0., 0.], [(l1*self.Fe)/(m1*l1**2+m2*l2**2+Jz), 0., 0., 0.]])
+        self.Blat = [[0.],[0.],[1/Jx],[0.]]
+        C = control.ctrb(self.Alat,self.Blat)
+        contrable = np.linalg.det(C)
+        if (contrable==0):
+            print("Lat Not Controlable!!!!")
+        else:
+            print("L Controllable")
+        C_yaw = np.array([0., 1., 0., 0.])
+
+        # self.Alon = np.array([0., 1.],[]) page 23
+
+
+
+
         # Roll Gains
         zeta_p = .707
         tr_p = .2
         omegan_p = 2.2/tr_p
 
+        # Pitch Gains
+        b0_th = 1.152
+        zeta_th = .707
+        tr_th = .9
+        omegan_th = 2.2/tr_th
+
+        # Yaw Gains
+        b_psi = (l1*self.Fe)/(m1*l1**2 + m2*l2**2 + Jz) #Works better for l2 than l1 even though it should be l1
+        zeta_psi = .707
+        m_psi = 10
+        tr_psi = m_psi*tr_p
+        omegan_psi = 2.2/tr_psi
+
+        #Lat Poles
+        plat = np.array([(-zeta_p*omegan_p+1j*omegan_p*sqrt(1-zeta_p**2)),
+                         (-zeta_p*omegan_p-1j*omegan_p*sqrt(1-zeta_p**2)),
+                         (-zeta_psi*omegan_psi+1j*omegan_psi*sqrt(1-zeta_psi**2)),
+                         (-zeta_psi*omegan_psi-1j*omegan_psi*sqrt(1-zeta_psi**2))])
+        self.K_lat = control.matlab.place(self.Alat, self.Blat, plat)
+        self.kr_lat = -1.0/(C_yaw*(self.Alat-self.Blat*K_lat)**-1*self.Blat)
+
+        #Long Poles
+        plong = np.array([(-zeta_th*omegan_th+1j*omegan_th*sqrt(1-zeta_th**2)),
+                         (-zeta_th*omegan_th-1j*omegan_th*sqrt(1-zeta_th**2))])
+        self.K_lon = control.matlab.place(self.Along, self.Blong, plong)
+        self.kr_lon = -1.0/(C_lon*(self.Alon-self.Blon*K_lon)**-1*self.Blon)
+
+        #ROLL
         self.P_phi_ = omegan_p**2*Jx
         self.I_phi_ = 1
         self.D_phi_ = 2*zeta_p*omegan_p*Jx
@@ -57,12 +104,7 @@ class Controller():
         self.error_phi_prev = 0.0
         self.phid = 0.0
 
-        # Pitch Gains
-        b0_th = 1.152
-        zeta_th = .707
-        tr_th = .9
-        omegan_th = 2.2/tr_th
-
+        # PITCH
         self.theta_r = 0.0
         self.P_theta_ = omegan_th**2/b0_th
         self.I_theta_ = 1.0
@@ -72,14 +114,7 @@ class Controller():
         self.error_theta_prev = 0.0
         self.thetad = 0.0
 
-        # Yaw Gains
-        b_psi = (l1*self.Fe)/(m1*l1**2 + m2*l2**2 + Jz) #Works better for l2 than l1 even though it should be l1
-        zeta_psi = .707
-        m_psi = 10
-        tr_psi = m_psi*tr_p
-        omegan_psi = 2.2/tr_psi
-
-
+        # YAW
         self.psi_r = 0.0
         self.P_psi_ = omegan_psi**2/b_psi
         self.I_psi_ = .1
