@@ -11,6 +11,6 @@
 
   <rosparam command="load" file="$(find whirlybird_sim)/param/whirlybird.yaml" ns="whirlybird" />
   <node pkg="whirlybird_sim" type="whirlybird_sim.py" name="whirlybird_sim"/>
-  <node name="whirlybird_controller" pkg="whirlybird_controller" type = "controllerSS.py" output="screen"/>	
+  <node name="whirlybird_controller" pkg="whirlybird_controller" type = "controllerSS.py" output="screen"/>
 
 </launch>

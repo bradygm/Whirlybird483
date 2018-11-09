@@ -49,51 +49,69 @@ class Controller():
 
         #SS Stuff
         self.Alat = np.array([[0., 0., 1., 0.], [0., 0., 0., 1], [0., 0., 0., 0.], [(l1*self.Fe)/(m1*l1**2+m2*l2**2+Jz), 0., 0., 0.]])
-        self.Blat = [[0.],[0.],[1/Jx],[0.]]
+        self.Blat = np.array([[0.],[0.],[1/Jx],[0.]])
+        self.Blat = self.Blat.reshape((4,1))
+        self.Alat = self.Alat.reshape((4,4))
         C = control.ctrb(self.Alat,self.Blat)
         contrable = np.linalg.det(C)
         if (contrable==0):
             print("Lat Not Controlable!!!!")
         else:
-            print("L Controllable")
+            print("Lat Controllable")
         C_yaw = np.array([0., 1., 0., 0.])
+        C_yaw = C_yaw.reshape((1,4))
 
-        # self.Alon = np.array([0., 1.],[]) page 23
 
+        self.Alon = np.array([[0., 1.],[0., 0.]])
+        self.Blon = np.array([[0],[(l1/(m1*l1**2+m2*l2**2+Jy))]])
+
+        Clon = control.ctrb(self.Alon,self.Blon)
+        contrable = np.linalg.det(Clon)
+        if (contrable==0):
+            print("Lon Not Controlable!!!!")
+        else:
+            print("Lon Controllable")
+        C_lon = np.array([1.,0.])
 
 
 
         # Roll Gains
-        zeta_p = .707
+        zeta_p = .707 #.707
         tr_p = .2
         omegan_p = 2.2/tr_p
 
         # Pitch Gains
         b0_th = 1.152
-        zeta_th = .707
-        tr_th = .9
+        zeta_th = .707 #.707
+        tr_th = .9 #1.4
         omegan_th = 2.2/tr_th
 
         # Yaw Gains
         b_psi = (l1*self.Fe)/(m1*l1**2 + m2*l2**2 + Jz) #Works better for l2 than l1 even though it should be l1
-        zeta_psi = .707
-        m_psi = 10
+        zeta_psi = .707#.707
+        m_psi = 10#8
         tr_psi = m_psi*tr_p
         omegan_psi = 2.2/tr_psi
 
         #Lat Poles
-        plat = np.array([(-zeta_p*omegan_p+1j*omegan_p*sqrt(1-zeta_p**2)),
-                         (-zeta_p*omegan_p-1j*omegan_p*sqrt(1-zeta_p**2)),
-                         (-zeta_psi*omegan_psi+1j*omegan_psi*sqrt(1-zeta_psi**2)),
-                         (-zeta_psi*omegan_psi-1j*omegan_psi*sqrt(1-zeta_psi**2))])
-        self.K_lat = control.matlab.place(self.Alat, self.Blat, plat)
-        self.kr_lat = -1.0/(C_yaw*(self.Alat-self.Blat*K_lat)**-1*self.Blat)
-
+        plat = np.array([(-zeta_p*omegan_p+1j*omegan_p*math.sqrt(1.-zeta_p**2.)),
+                         (-zeta_p*omegan_p-1j*omegan_p*math.sqrt(1.-zeta_p**2.)),
+                         (-zeta_psi*omegan_psi+1j*omegan_psi*math.sqrt(1.-zeta_psi**2.)),
+                         (-zeta_psi*omegan_psi-1j*omegan_psi*math.sqrt(1.-zeta_psi**2.))])
+        self.K_lat = control.place(self.Alat, self.Blat, plat)
+        self.K_lat = self.K_lat.reshape((1,4))
+        inbetween = np.linalg.inv(self.Alat-self.Blat*self.K_lat)
+        self.kr_lat = -1.0/(np.matmul(C_yaw,np.matmul(inbetween,self.Blat)))
+        print(self.kr_lat)
         #Long Poles
-        plong = np.array([(-zeta_th*omegan_th+1j*omegan_th*sqrt(1-zeta_th**2)),
-                         (-zeta_th*omegan_th-1j*omegan_th*sqrt(1-zeta_th**2))])
-        self.K_lon = control.matlab.place(self.Along, self.Blong, plong)
-        self.kr_lon = -1.0/(C_lon*(self.Alon-self.Blon*K_lon)**-1*self.Blon)
+        plong = np.array([(-zeta_th*omegan_th+1j*omegan_th*math.sqrt(1-zeta_th**2)),
+                         (-zeta_th*omegan_th-1j*omegan_th*math.sqrt(1-zeta_th**2))])
+        self.K_lon = control.place(self.Alon, self.Blon, plong)
+        inbetween = np.linalg.inv(self.Alon-self.Blon*self.K_lon)
+        self.kr_lon = -1.0/(np.matmul(C_lon,np.matmul(inbetween,self.Blon)))
+        print(self.kr_lon)
+        # print(plat)
+        # print(plong)
 
         #ROLL
         self.P_phi_ = omegan_p**2*Jx
@@ -184,31 +202,31 @@ class Controller():
         self.prev_theta = theta
         self.prev_psi = psi
 
-        if(abs(self.thetad) < .05):
-            self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
-        self.error_theta_prev = self.theta_r-theta
+        # if(abs(self.thetad) < .05):
+        #     self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
+        # self.error_theta_prev = self.theta_r-theta
 
-        Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
-
+        # Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
+        Ftilde = -np.matmul(self.K_lon,np.array([[theta],[self.thetad]]))+self.kr_lon*self.theta_r
 
         Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
         F = Fe + Ftilde
-        if(abs(self.psid) < .1):
-            self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
+        # if(abs(self.psid) < .1):
+        #     self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
 
-        phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
+        # phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
 
 
         self.phid = a1*self.phid+a2*(phi-self.prev_phi)
 
         self.prev_phi = phi
-        self.error_phi_prev = phi_r-phi
-        self.error_psi_prev = self.psi_r-psi
+        # self.error_phi_prev = phi_r-phi
+        # self.error_psi_prev = self.psi_r-psi
 
-        Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
-
-        left_force = (F+Tau/d)/2
-        right_force = (F-Tau/d)/2
+        # Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
+        Tau = -np.matmul(self.K_lat,np.array([[phi],[psi],[self.phid],[self.psid]]))+self.kr_lat*self.psi_r
+        left_force = (F+Tau/d)/2.0
+        right_force = (F-Tau/d)/2.0
 
         ##################################
 
