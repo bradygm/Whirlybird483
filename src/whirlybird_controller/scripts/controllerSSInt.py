@@ -48,10 +48,11 @@ class Controller():
         self.Fe = (m1*l1-m2*l2)*g*math.cos(0)/l1 #Note this is not the correct value for Fe, you will have to find that yourself
 
         #SS Stuff
-        self.Alat = np.array([[0., 0., 1., 0.], [0., 0., 0., 1], [0., 0., 0., 0.], [(l1*self.Fe)/(m1*l1**2+m2*l2**2+Jz), 0., 0., 0.]])
-        self.Blat = np.array([[0.],[0.],[1/Jx],[0.]])
-        self.Blat = self.Blat.reshape((4,1))
-        self.Alat = self.Alat.reshape((4,4))
+        self.Alat = np.array([[0., 0., 1., 0., 0.], [0., 0., 0., 1,0.], [0., 0., 0., 0.,0.], [(l1*self.Fe)/(m1*l1**2+m2*l2**2+Jz), 0., 0., 0.,0.],
+                                [0., -1., 0., 0.,0.]])
+        self.Blat = np.array([[0.],[0.],[1/Jx],[0.],[0.]])
+        self.Blat = self.Blat.reshape((5,1))
+        self.Alat = self.Alat.reshape((5,5))
         C = control.ctrb(self.Alat,self.Blat)
         contrable = np.linalg.det(C)
         if (contrable==0):
@@ -62,8 +63,8 @@ class Controller():
         C_yaw = C_yaw.reshape((1,4))
 
 
-        self.Alon = np.array([[0., 1.],[0., 0.]])
-        self.Blon = np.array([[0],[(l1/(m1*l1**2+m2*l2**2+Jy))]])
+        self.Alon = np.array([[0., 1., 0.],[0., 0., 0.],[-1.,0.,0.]])
+        self.Blon = np.array([[0],[(l1/(m1*l1**2+m2*l2**2+Jy))],[0.]])
 
         Clon = control.ctrb(self.Alon,self.Blon)
         contrable = np.linalg.det(Clon)
@@ -77,7 +78,7 @@ class Controller():
 
         # Roll Gains
         zeta_p = .707 #.707
-        tr_p = .2
+        tr_p = .25
         omegan_p = 2.2/tr_p
 
         # Pitch Gains
@@ -93,24 +94,39 @@ class Controller():
         tr_psi = m_psi*tr_p
         omegan_psi = 2.2/tr_psi
 
+        print("Yo")
         #Lat Poles
-        p_lat_int = -omegan_psi/2.0
+        # p_lat_int = -omegan_psi/2.0
+        p_lat_int = -1.1
+        print(p_lat_int)
         plat = np.array([(-zeta_p*omegan_p+1j*omegan_p*math.sqrt(1.-zeta_p**2.)),
                          (-zeta_p*omegan_p-1j*omegan_p*math.sqrt(1.-zeta_p**2.)),
                          (-zeta_psi*omegan_psi+1j*omegan_psi*math.sqrt(1.-zeta_psi**2.)),
-                         (-zeta_psi*omegan_psi-1j*omegan_psi*math.sqrt(1.-zeta_psi**2.))])
-        self.K_lat = control.place(self.Alat, self.Blat, plat)
-        self.K_lat = self.K_lat.reshape((1,4))
-        inbetween = np.linalg.inv(self.Alat-self.Blat*self.K_lat)
-        self.kr_lat = -1.0/(np.matmul(C_yaw,np.matmul(inbetween,self.Blat)))
-        print(self.kr_lat)
+                         (-zeta_psi*omegan_psi-1j*omegan_psi*math.sqrt(1.-zeta_psi**2.)),
+                         p_lat_int])
+        self.K1_lat = control.place(self.Alat, self.Blat, plat)
+        self.K1_lat = self.K1_lat.reshape((1,5))
+        print(self.K1_lat)
+        # print("Yo2")
+        self.K_lat = self.K1_lat[0,0:4]
+        print(self.K_lat)
+        # inbetween = np.linalg.inv(self.Alat-self.Blat*self.K_lat)
+        self.ki_lat = self.K1_lat[0,4]
+
+        print(self.ki_lat)
         #Long Poles
+        p_lon_int = -omegan_th/2
+
         plong = np.array([(-zeta_th*omegan_th+1j*omegan_th*math.sqrt(1-zeta_th**2)),
-                         (-zeta_th*omegan_th-1j*omegan_th*math.sqrt(1-zeta_th**2))])
-        self.K_lon = control.place(self.Alon, self.Blon, plong)
-        inbetween = np.linalg.inv(self.Alon-self.Blon*self.K_lon)
-        self.kr_lon = -1.0/(np.matmul(C_lon,np.matmul(inbetween,self.Blon)))
-        print(self.kr_lon)
+                         (-zeta_th*omegan_th-1j*omegan_th*math.sqrt(1-zeta_th**2)),
+                         p_lon_int])
+        self.K1_lon = control.place(self.Alon, self.Blon, plong)
+        self.K_lon = self.K1_lon[0,0:2]
+        # inbetween = np.linalg.inv(self.Alon-self.Blon*self.K_lon)
+        self.ki_lon = self.K1_lon[0,2]
+        print("Yo4")
+        print(self.K_lon)
+        print(self.ki_lon)
         # print(plat)
         # print(plong)
 
@@ -130,7 +146,7 @@ class Controller():
         # self.D_theta_ = (2*zeta_th*omegan_th)/b0_th
         self.prev_theta = 0.0
         self.Int_theta = 0.0
-        # self.error_theta_prev = 0.0
+        self.error_theta_prev = 0.0
         self.thetad = 0.0
 
         # YAW
@@ -141,7 +157,7 @@ class Controller():
         self.prev_psi = 0.0
         self.Int_psi = 0.0
         self.psid = 0.0
-        # self.error_psi_prev = 0.0
+        self.error_psi_prev = 0.0
 
 
         self.prev_time = rospy.Time.now()
@@ -203,17 +219,20 @@ class Controller():
         self.prev_theta = theta
         self.prev_psi = psi
 
-        # if(abs(self.thetad) < .05):
-        #     self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
-        # self.error_theta_prev = self.theta_r-theta
+
+        self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
+        self.error_theta_prev = self.theta_r-theta
+
+        lon_error = 0
+        lat_error = 0
 
         # Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
-        Ftilde = -np.matmul(self.K_lon,np.array([[theta],[self.thetad]]))+self.kr_lon*self.theta_r
-
+        Ftilde = -np.matmul(self.K_lon,np.array([[theta],[self.thetad]]))-self.ki_lon*self.Int_theta + lon_error
+        # print(Ftilde)
         Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
         F = Fe + Ftilde
-        # if(abs(self.psid) < .1):
-        #     self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
+        # print(F)
+        self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
 
         # phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
 
@@ -222,12 +241,13 @@ class Controller():
 
         self.prev_phi = phi
         # self.error_phi_prev = phi_r-phi
-        # self.error_psi_prev = self.psi_r-psi
+        self.error_psi_prev = self.psi_r-psi
 
         # Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
-        Tau = -np.matmul(self.K_lat,np.array([[phi],[psi],[self.phid],[self.psid]]))+self.kr_lat*self.psi_r
+        Tau = -np.matmul(self.K_lat,np.array([[phi],[psi],[self.phid],[self.psid]]))-self.ki_lat*self.Int_psi + lat_error
         left_force = (F+Tau/d)/2.0
         right_force = (F-Tau/d)/2.0
+
 
         ##################################
 
@@ -243,6 +263,8 @@ class Controller():
             r_out = 0
         elif(r_out > .7):
             r_out = .7
+        # print(r_out)
+        # print(l_out)
 
         # Pack up and send command
         command = Command()
