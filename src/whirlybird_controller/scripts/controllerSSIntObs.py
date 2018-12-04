@@ -212,7 +212,7 @@ class Controller():
         # self.thetad = a1*self.thetad+a2*(theta-self.prev_theta)
         # self.psid = a1*self.psid+a2*((psi-self.prev_psi))
         self.thetad = msg.pitchd
-        self.psid = mas.yawd
+        self.psid = msg.yawd
 
         # self.thetad = (theta-self.prev_theta)/dt
         # self.psid = (psi-self.prev_psi)/dt

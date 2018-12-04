@@ -79,6 +79,8 @@ class Observer():
         self.Alon = np.array([[0., 1.],[0., 0.]])
         self.Blon = np.array([[0],[(l1/(m1*l1**2+m2*l2**2+Jy))]])
         self.Clon = np.array([1.,0.])
+        self.Alon = self.Alon.reshape((2,2))
+        self.Clon = self.Clon.reshape((1,2))
         print(self.Alon)
         print(self.Clon)
         Ctrlon = control.obsv(self.Alon,self.Clon)
@@ -123,24 +125,22 @@ class Observer():
         p_lat_int = -1.1
         print(p_lat_int)
         polynomialLat= np.convolve([1, 2*zeta_p*roll_gain_obs, roll_gain_obs**2], [1, 2*zeta_psi*yaw_gain_obs, yaw_gain_obs**2])
+        print(polynomialLat)
         plat = np.roots(polynomialLat)
-        self.L_lat = np.tranpose(control.place(np.transpose(self.Alat), np.transpose(self.Clat), plat))
+        print(plat)
+        self.L_lat = np.transpose(np.array(control.place(np.transpose(self.Alat), np.transpose(self.Clat), plat)))
         print(self.L_lat)
         print("Bradford")
 
-        #Long Poles
-        p_lon_int = -omegan_th/2
 
-        plong = np.array([(-zeta_th*omegan_th+1j*omegan_th*math.sqrt(1-zeta_th**2)),
-                         (-zeta_th*omegan_th-1j*omegan_th*math.sqrt(1-zeta_th**2)),
-                         p_lon_int])
-        self.K1_lon = control.place(self.Alon, self.Blon, plong)
-        self.K_lon = self.K1_lon[0,0:2]
-        # inbetween = np.linalg.inv(self.Alon-self.Blon*self.K_lon)
-        self.ki_lon = self.K1_lon[0,2]
+        polynomialLon = np.array([1, 2*zeta_th*pitch_gain_obs, pitch_gain_obs**2])
+        print(polynomialLon)
+        plon = np.roots(polynomialLon)
+        print(plon)
+        self.L_lon = np.transpose(np.array(control.place(np.transpose(self.Alon), np.transpose(self.Clon), plon)))
         print("Yo4")
-        print(self.K_lon)
-        print(self.ki_lon)
+        print(self.L_lon)
+
         # print(plat)
         # print(plong)
 
@@ -237,38 +237,39 @@ class Observer():
         # self.psid = (psi-self.prev_psi)/dt
         # self.phid = (phi-self.prev_phi)/dt
 
-        self.prev_theta = theta
-        self.prev_psi = psi
-
-
-        self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
-        self.error_theta_prev = self.theta_r-theta
-
-        lon_error = 0
-        lat_error = 0
-
-        # Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
-        Ftilde = -np.matmul(self.K_lon,np.array([[theta],[self.thetad]]))-self.ki_lon*self.Int_theta + lon_error
-        # print(Ftilde)
-        Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
-        F = Fe + Ftilde
-        # print(F)
-        self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
-
-        # phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
-
-
-        self.phid = a1*self.phid+a2*(phi-self.prev_phi)
-
-        self.prev_phi = phi
-        # self.error_phi_prev = phi_r-phi
-        self.error_psi_prev = self.psi_r-psi
-
-        # Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
-        Tau = -np.matmul(self.K_lat,np.array([[phi],[psi],[self.phid],[self.psid]]))-self.ki_lat*self.Int_psi + lat_error
-        left_force = (F+Tau/d)/2.0
-        right_force = (F-Tau/d)/2.0
-
+        # self.prev_theta = theta
+        # self.prev_psi = psi
+        #
+        #
+        # self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
+        # self.error_theta_prev = self.theta_r-theta
+        #
+        # lon_error = 0
+        # lat_error = 0
+        #
+        # # Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
+        # Ftilde = -np.matmul(self.K_lon,np.array([[theta],[self.thetad]]))-self.ki_lon*self.Int_theta + lon_error
+        # # print(Ftilde)
+        # Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
+        # F = Fe + Ftilde
+        # # print(F)
+        # self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
+        #
+        # # phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
+        #
+        #
+        # self.phid = a1*self.phid+a2*(phi-self.prev_phi)
+        #
+        # self.prev_phi = phi
+        # # self.error_phi_prev = phi_r-phi
+        # self.error_psi_prev = self.psi_r-psi
+        #
+        # # Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
+        # Tau = -np.matmul(self.K_lat,np.array([[phi],[psi],[self.phid],[self.psid]]))-self.ki_lat*self.Int_psi + lat_error
+        # left_force = (F+Tau/d)/2.0
+        # right_force = (F-Tau/d)/2.0
+        left_force = 0
+        right_force = 0
 
         ##################################
 
@@ -290,10 +291,14 @@ class Observer():
         # Pack up and send command
         estimatedStates = EstStates()
         estimatedStates.roll = 0.0
+        estimatedStates.pitch = 0.0
+        estimatedStates.yaw = 0.0
         estimatedStates.rolld = 0.0
-        command.left_motor = l_out
-        command.right_motor = r_out
-        self.command_pub_.publish(estimatedStates)
+        estimatedStates.pitchd = 0.0
+        estimatedStates.yawd = 0.0
+        # command.left_motor = l_out
+        # command.right_motor = r_out
+        self.estStates_pub_.publish(estimatedStates)
 
 
 if __name__ == '__main__':
