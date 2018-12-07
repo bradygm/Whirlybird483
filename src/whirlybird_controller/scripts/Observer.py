@@ -117,7 +117,7 @@ class Observer():
 
         #observer gains
         roll_gain_obs = omegan_p*10
-        pitch_gain_obs = omegan_th/10
+        pitch_gain_obs = omegan_th*5.5
         yaw_gain_obs = omegan_psi*10
 
         print("Yo")
@@ -216,15 +216,17 @@ class Observer():
         Jy = self.param['Jy']
         Jz = self.param['Jz']
         km = self.param['km']
-        F = self.command_r + self.command_l
-        Tau = self.command_l*d - self.command_r*d
+
+        F = (self.command_r + self.command_l)*km
+        Tau = (self.command_l*d - self.command_r*d)*km
 
 
         phi = msg.roll
         theta = msg.pitch
         psi = msg.yaw
+
         latmeasuredStates = np.array([[phi],[psi]])
-        Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
+        Fe = (m1*l1-m2*l2)*g*math.cos(0)/l1
 
         # Calculate dt (This is variable)
         now = rospy.Time.now()
@@ -234,7 +236,7 @@ class Observer():
         ##################################
         # Implement your observer here
         # print(self.state[0,2,4,5])
-        print("here")
+        # print("here")
         # print(self.Alon)
         # print(self.lonState)
         # print(np.matmul(self.Alon,self.lonState))
@@ -243,15 +245,17 @@ class Observer():
         # print(theta)
         # print(self.Blon)
         # print(self.Blon*(F-Fe))
-        print(F)
-        print(self.Blon)
+        # print(F)
+        # print(self.Clon)
         N = 10
         for i in range(0,N):
+            # print(self.lonState)
+            # print((theta - np.matmul(self.Clon,self.lonState)))
+            # print(np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState))))
+            self.latState = self.latState + (dt/N)*((np.matmul(self.Alat,self.latState)) + self.Blat*(Tau) + np.matmul(self.L_lat,(latmeasuredStates - np.matmul(self.Clat,self.latState))))
+            self.lonState = self.lonState + (dt/N)*((np.matmul(self.Alon,self.lonState)) + self.Blon*(F-Fe) + np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState))))
+            # self.lonState = self.lonState + (dt/N)*(self.Alon*self.lonState) + self.Blon*(F-Fe) + self.L_lon*(theta - (self.Clon*self.lonState))
 
-            self.latState = self.latState + (dt/N)*(np.matmul(self.Alat,self.latState)) + self.Blat*(Tau) + np.matmul(self.L_lat,(latmeasuredStates - np.matmul(self.Clat,self.latState)))
-            self.lonState = self.lonState + (dt/N)*(np.matmul(self.Alon,self.lonState)) + self.Blon*(F-Fe) + np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState)))
-            print(self.lonState)
-            print(np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState))))
 
             # print(self.latState)
             # print(self.lonState)

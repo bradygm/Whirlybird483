@@ -160,8 +160,8 @@ class WhirlybirdSim():
 
         # angle dynamics
         xdot[0:3] = state[3:6]
-        xdot[0] = 0
-        xdot[2] = 0
+        # xdot[0] = 0
+        # xdot[2] = 0
 
         # angle rate dynamics
         sphi   = np.sin(phi)
@@ -191,8 +191,8 @@ class WhirlybirdSim():
                             [l1*(fl+fr)*ctheta*sphi+d*(fr-fl)*stheta]])
         qMatrix = qMatrix.reshape((3,1))
         xdot[3:6] = np.linalg.solve(mMatrix,(qMatrix-cMatrix-partialP))
-        xdot[3] = 0
-        xdot[5] = 0
+        # xdot[3] = 0
+        # xdot[5] = 0
         #xdot[3:6] = qddot[:][0]
         #print(xdot)
 
