@@ -272,6 +272,8 @@ class Controller():
         command = Command()
         command.left_motor = l_out
         command.right_motor = r_out
+        command.left_motor = 0
+        command.right_motor = 0
         self.command_pub_.publish(command)
 
 

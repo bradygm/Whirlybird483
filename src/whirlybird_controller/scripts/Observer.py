@@ -34,7 +34,8 @@ class Observer():
             rospy.logfatal('Parameters not set in ~/whirlybird namespace')
             rospy.signal_shutdown('Parameters not set')
         print("Start of Observable!!!!")
-
+        self.lonState = np.zeros((2,1))
+        self.latState = np.zeros((4,1))
         g = self.param['g']
         l1 = self.param['l1']
         l2 = self.param['l2']
@@ -77,7 +78,7 @@ class Observer():
         # self.Alon = np.array([[0., 1., 0.],[0., 0., 0.],[-1.,0.,0.]])
         # self.Blon = np.array([[0],[(l1/(m1*l1**2+m2*l2**2+Jy))],[0.]])
         self.Alon = np.array([[0., 1.],[0., 0.]])
-        self.Blon = np.array([[0],[(l1/(m1*l1**2+m2*l2**2+Jy))]])
+        self.Blon = np.array([[0.],[(l1/(m1*l1**2+l2**2+Jy))]])
         self.Clon = np.array([1.,0.])
         self.Alon = self.Alon.reshape((2,2))
         self.Clon = self.Clon.reshape((1,2))
@@ -116,7 +117,7 @@ class Observer():
 
         #observer gains
         roll_gain_obs = omegan_p*10
-        pitch_gain_obs = omegan_th*10
+        pitch_gain_obs = omegan_th/10
         yaw_gain_obs = omegan_psi*10
 
         print("Yo")
@@ -191,7 +192,7 @@ class Observer():
 
 
     # def thetaRCallback(self, msg):
-    #     self.theta_r = msg.data
+    #     self.theta_r = msg.dataEstStates()
     #
     #
     # def psiRCallback(self, msg):
@@ -215,11 +216,15 @@ class Observer():
         Jy = self.param['Jy']
         Jz = self.param['Jz']
         km = self.param['km']
+        F = self.command_r + self.command_l
+        Tau = self.command_l*d - self.command_r*d
+
 
         phi = msg.roll
         theta = msg.pitch
         psi = msg.yaw
-
+        latmeasuredStates = np.array([[phi],[psi]])
+        Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
 
         # Calculate dt (This is variable)
         now = rospy.Time.now()
@@ -228,76 +233,38 @@ class Observer():
 
         ##################################
         # Implement your observer here
-        # a1 = (2.0*self.sigma - dt)/(2*self.sigma + dt)
-        # a2 = (2.0/(2*self.sigma+dt))
-        # self.thetad = a1*self.thetad+a2*(theta-self.prev_theta)
-        # self.psid = a1*self.psid+a2*((psi-self.prev_psi))
+        # print(self.state[0,2,4,5])
+        print("here")
+        # print(self.Alon)
+        # print(self.lonState)
+        # print(np.matmul(self.Alon,self.lonState))
+        # # print(np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState))))
+        # print(dt)
+        # print(theta)
+        # print(self.Blon)
+        # print(self.Blon*(F-Fe))
+        print(F)
+        print(self.Blon)
+        N = 10
+        for i in range(0,N):
 
-        # self.thetad = (theta-self.prev_theta)/dt
-        # self.psid = (psi-self.prev_psi)/dt
-        # self.phid = (phi-self.prev_phi)/dt
+            self.latState = self.latState + (dt/N)*(np.matmul(self.Alat,self.latState)) + self.Blat*(Tau) + np.matmul(self.L_lat,(latmeasuredStates - np.matmul(self.Clat,self.latState)))
+            self.lonState = self.lonState + (dt/N)*(np.matmul(self.Alon,self.lonState)) + self.Blon*(F-Fe) + np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState)))
+            print(self.lonState)
+            print(np.matmul(self.L_lon,(theta - np.matmul(self.Clon,self.lonState))))
 
-        # self.prev_theta = theta
-        # self.prev_psi = psi
-        #
-        #
-        # self.Int_theta = self.Int_theta + (dt/2)*(self.theta_r-theta + self.error_theta_prev)
-        # self.error_theta_prev = self.theta_r-theta
-        #
-        # lon_error = 0
-        # lat_error = 0
-        #
-        # # Ftilde = self.P_theta_*(self.theta_r-theta)-self.D_theta_*self.thetad + self.I_theta_*self.Int_theta
-        # Ftilde = -np.matmul(self.K_lon,np.array([[theta],[self.thetad]]))-self.ki_lon*self.Int_theta + lon_error
-        # # print(Ftilde)
-        # Fe = (m1*l1-m2*l2)*g*math.cos(theta)/l1
-        # F = Fe + Ftilde
-        # # print(F)
-        # self.Int_psi = self.Int_psi + (dt/2)*(self.psi_r-psi + self.error_psi_prev)
-        #
-        # # phi_r = self.P_psi_*(self.psi_r-psi)-self.D_psi_*self.psid +self.I_psi_*self.Int_psi
-        #
-        #
-        # self.phid = a1*self.phid+a2*(phi-self.prev_phi)
-        #
-        # self.prev_phi = phi
-        # # self.error_phi_prev = phi_r-phi
-        # self.error_psi_prev = self.psi_r-psi
-        #
-        # # Tau = self.P_phi_*(phi_r-phi)-self.D_phi_*self.phid #+self.I_phi_*self.Int_phi
-        # Tau = -np.matmul(self.K_lat,np.array([[phi],[psi],[self.phid],[self.psid]]))-self.ki_lat*self.Int_psi + lat_error
-        # left_force = (F+Tau/d)/2.0
-        # right_force = (F-Tau/d)/2.0
-        left_force = 0
-        right_force = 0
-
-        ##################################
-
-        # Scale Output
-        l_out = left_force/km
-        if(l_out < 0):
-            l_out = 0
-        elif(l_out > .7):
-            l_out = .7
-
-        r_out = right_force/km
-        if(r_out < 0):
-            r_out = 0
-        elif(r_out > .7):
-            r_out = .7
-        # print(r_out)
-        # print(l_out)
+            # print(self.latState)
+            # print(self.lonState)
 
         # Pack up and send command
         estimatedStates = EstStates()
-        estimatedStates.roll = 0.0
-        estimatedStates.pitch = 0.0
-        estimatedStates.yaw = 0.0
-        estimatedStates.rolld = 0.0
-        estimatedStates.pitchd = 0.0
-        estimatedStates.yawd = 0.0
-        # command.left_motor = l_out
-        # command.right_motor = r_out
+        print(self.lonState)
+        estimatedStates.roll = float(self.latState[0])
+        estimatedStates.pitch = float(self.lonState[0])
+        estimatedStates.yaw = float(self.latState[1])
+        estimatedStates.rolld = float(self.latState[2])
+        estimatedStates.pitchd = float(self.lonState[1])
+        estimatedStates.yawd = float(self.latState[3])
         self.estStates_pub_.publish(estimatedStates)
 
 
